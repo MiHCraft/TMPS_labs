@@ -1,0 +1,20 @@
+{
+  "Tables": [
+    {
+      "Id": 1,
+      "Shape": "Round"
+    },
+    {
+      "Id": 2,
+      "Shape": "Square"
+    }
+  ],
+  "Chairs": [
+    {
+      "Id": 1,
+      "TableId": 1,
+      "ExtraPrice": null
+    }
+  ],
+  "Orders": []
+}
