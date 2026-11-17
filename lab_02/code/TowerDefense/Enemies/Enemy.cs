@@ -3,7 +3,7 @@ using Raylib_cs;
 
 namespace TowerDefense.Enemies;
 
-public abstract class Enemy
+public abstract class Enemy : IEnemy
 {
     private readonly Vector2[] path;
     private int nextWaypoint = 1;
@@ -15,6 +15,7 @@ public abstract class Enemy
     public int MaxHealth { get; }
     public int Health { get; private set; }
     public int Reward { get; }
+    public bool HasActiveShield => false;
     public bool IsDead => Health == 0;
     public bool HasReachedEnd => nextWaypoint >= path.Length;
 

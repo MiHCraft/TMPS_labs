@@ -30,7 +30,7 @@ public class EnemyWave
         }
     }
 
-    public void Update(float deltaTime, List<Enemy> enemies)
+    public void Update(float deltaTime, List<IEnemy> enemies)
     {
         spawnTimer -= deltaTime;
 

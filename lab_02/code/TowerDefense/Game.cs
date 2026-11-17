@@ -31,7 +31,7 @@ internal static class Game
 
         GameSession session = GameSession.Instance;
         session.Reset();
-        var enemies = new List<Enemy>();
+        var enemies = new List<IEnemy>();
         var towers = new List<Tower>();
         EnemyWave? wave = null;
         bool paused = false;
@@ -84,7 +84,7 @@ internal static class Game
                 if (wave != null)
                     wave.Update(deltaTime, enemies);
 
-                foreach (Enemy enemy in enemies)
+                foreach (IEnemy enemy in enemies)
                     enemy.Update(deltaTime);
 
                 foreach (Tower tower in towers)
@@ -93,7 +93,7 @@ internal static class Game
                 // Iterate backwards so removal does not shift elements we have yet to check.
                 for (int i = enemies.Count - 1; i >= 0; i--)
                 {
-                    Enemy enemy = enemies[i];
+                    IEnemy enemy = enemies[i];
                     if (enemy.IsDead)
                     {
                         session.RewardEnemy(enemy.Reward);
@@ -165,13 +165,29 @@ internal static class Game
                     );
             }
 
-            foreach (Enemy enemy in enemies)
+            foreach (IEnemy enemy in enemies)
             {
                 Raylib.DrawCircleV(enemy.Position, enemy.Radius, enemy.Color);
+                if (enemy.HasActiveShield)
+                {
+                    Raylib.DrawCircleLines(
+                        (int)enemy.Position.X,
+                        (int)enemy.Position.Y,
+                        enemy.Radius + 4,
+                        Color.SkyBlue
+                    );
+                }
+
                 int barX = (int)enemy.Position.X - 20;
                 int barY = (int)(enemy.Position.Y - enemy.Radius) - 9;
                 Raylib.DrawRectangle(barX, barY, 40, 5, Color.Black);
-                Raylib.DrawRectangle(barX, barY, 40 * enemy.Health / enemy.MaxHealth, 5, Color.Lime);
+                Raylib.DrawRectangle(
+                    barX,
+                    barY,
+                    40 * enemy.Health / enemy.MaxHealth,
+                    5,
+                    Color.Lime
+                );
             }
 
             Raylib.DrawText("START", gridX - 65, gridY + 2 * cellSize + 22, 16, Color.White);

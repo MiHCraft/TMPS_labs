@@ -5,8 +5,8 @@ namespace TowerDefense.Factories;
 
 public sealed class TankEnemyFactory : EnemyFactory
 {
-    public override Enemy CreateEnemy(IReadOnlyList<Vector2> path)
+    public override IEnemy CreateEnemy(IReadOnlyList<Vector2> path)
     {
-        return new TankEnemy(path);
+        return new ShieldedEnemyProxy(new TankEnemy(path));
     }
 }

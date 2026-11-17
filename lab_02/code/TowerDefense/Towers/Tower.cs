@@ -22,7 +22,7 @@ public class Tower
         Position = position;
     }
 
-    public void Update(float deltaTime, List<Enemy> enemies)
+    public void Update(float deltaTime, IReadOnlyList<IEnemy> enemies)
     {
         cooldown = MathF.Max(0, cooldown - deltaTime);
         shotTime = MathF.Max(0, shotTime - deltaTime);
@@ -30,11 +30,11 @@ public class Tower
         if (cooldown > 0)
             return;
 
-        Enemy? target = null;
+        IEnemy? target = null;
         float nearestDistance = Range;
 
         // Find the nearest living enemy within the tower range.
-        foreach (Enemy enemy in enemies)
+        foreach (IEnemy enemy in enemies)
         {
             if (enemy.IsDead || enemy.HasReachedEnd)
                 continue;
