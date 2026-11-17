@@ -32,7 +32,7 @@ internal static class Game
         GameSession session = GameSession.Instance;
         session.Reset();
         var enemies = new List<IEnemy>();
-        var towers = new List<Tower>();
+        var towers = new List<ITower>();
         EnemyWave? wave = null;
         bool paused = false;
 
@@ -41,7 +41,7 @@ internal static class Game
 
         while (!input.ShouldQuit())
         {
-            // 1. Input: restart, pause, start a wave, and build towers.
+            // 1. Input: restart, pause, start a wave, and build or upgrade towers.
             if (input.IsPressed(GameAction.Restart))
             {
                 session.Reset();
@@ -69,11 +69,30 @@ internal static class Game
                 && insideGrid
                 && input.IsPressed(GameAction.BuildTower)
                 && map.CanBuild(row, col)
-                && session.TrySpendGold(Tower.Cost)
+                && session.TrySpendGold(TowerShop.BuildCost)
             )
             {
                 map.BuildTower(row, col);
-                towers.Add(new Tower(CellCenter(row, col)));
+                towers.Add(TowerShop.Build(CellCenter(row, col)));
+            }
+
+            int hoveredTowerIndex = -1;
+            if (insideGrid && map.Occupied[row, col])
+            {
+                Vector2 hoveredCell = CellCenter(row, col);
+                hoveredTowerIndex = towers.FindIndex(tower => tower.Position == hoveredCell);
+            }
+
+            ITower? hoveredTower = hoveredTowerIndex >= 0 ? towers[hoveredTowerIndex] : null;
+            if (hoveredTower != null && !paused && !session.IsFinished)
+            {
+                foreach (TowerUpgradeOffer offer in TowerShop.UpgradeOffers)
+                {
+                    if (input.IsPressed(offer.Action))
+                        hoveredTower = offer.Buy(hoveredTower, session);
+                }
+
+                towers[hoveredTowerIndex] = hoveredTower;
             }
 
             // 2. Update: move enemies, fire towers, and process the results.
@@ -87,7 +106,7 @@ internal static class Game
                 foreach (IEnemy enemy in enemies)
                     enemy.Update(deltaTime);
 
-                foreach (Tower tower in towers)
+                foreach (ITower tower in towers)
                     tower.Update(deltaTime, enemies);
 
                 // Iterate backwards so removal does not shift elements we have yet to check.
@@ -139,9 +158,9 @@ internal static class Game
                     if (map.Occupied[y, x])
                         color = Color.Blue;
 
-                    if (insideGrid && x == col && y == row && !paused && !session.IsFinished)
+                    if (insideGrid && x == col && y == row && !map.Occupied[y, x] && !paused && !session.IsFinished)
                     {
-                        bool canBuild = map.CanBuild(y, x) && session.Gold >= Tower.Cost;
+                        bool canBuild = map.CanBuild(y, x) && session.Gold >= TowerShop.BuildCost;
                         color = canBuild ? Color.LightGray : Color.Red;
                     }
 
@@ -149,14 +168,14 @@ internal static class Game
                 }
             }
 
-            foreach (Tower tower in towers)
+            foreach (ITower tower in towers)
             {
-                Raylib.DrawCircleV(tower.Position, 19, Color.DarkBlue);
-                Raylib.DrawCircleV(tower.Position, 11, Color.SkyBlue);
+                Raylib.DrawCircleV(tower.Position, 19, tower.BodyColor);
+                Raylib.DrawCircleV(tower.Position, 11, tower.CoreColor);
                 if (tower.IsShooting)
                     Raylib.DrawLineEx(tower.Position, tower.LastTargetPosition, 3, Color.SkyBlue);
 
-                if (insideGrid && tower.Position == CellCenter(row, col))
+                if (tower == hoveredTower)
                     Raylib.DrawCircleLines(
                         (int)tower.Position.X,
                         (int)tower.Position.Y,
@@ -199,23 +218,28 @@ internal static class Game
                 Color.White
             );
             Raylib.DrawText(
-                $"Click: build ({Tower.Cost})  |  SPACE: next wave  |  P: pause  |  R: restart",
+                $"Click: build ({TowerShop.BuildCost})  |  SPACE: next wave  |  P: pause  |  R: restart",
                 gridX,
                 610,
                 17,
                 Color.White
             );
 
-            string hint = "Defend the base! Hover over a tower to see its range.";
+            string hint = "Defend the base! Hover over a tower to buy upgrades.";
             if (!session.WaveInProgress && !session.IsFinished)
-                hint = "Build towers near the road, then press SPACE.";
+                hint = "Build towers near the road. Hover to upgrade them.";
             if (insideGrid && !paused && !session.IsFinished)
             {
-                if (map.Occupied[row, col])
-                    hint = "Tower range is shown by the blue circle.";
+                if (hoveredTower != null)
+                {
+                    hint = string.Join(
+                        "  |  ",
+                        TowerShop.UpgradeOffers.Select(offer => offer.GetHint(hoveredTower))
+                    );
+                }
                 else if (map.Road[row, col])
                     hint = "You cannot build on the road.";
-                else if (session.Gold < Tower.Cost)
+                else if (session.Gold < TowerShop.BuildCost)
                     hint = "Not enough gold. Defeat enemies to earn more.";
             }
             Raylib.DrawText(hint, gridX, 645, 18, Color.White);

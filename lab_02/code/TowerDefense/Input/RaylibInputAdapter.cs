@@ -15,6 +15,9 @@ public sealed class RaylibInputAdapter : IGameInput
             GameAction.TogglePause => Raylib.IsKeyPressed(KeyboardKey.P),
             GameAction.StartWave => Raylib.IsKeyPressed(KeyboardKey.Space),
             GameAction.BuildTower => Raylib.IsMouseButtonPressed(MouseButton.Left),
+            GameAction.BuyRangeUpgrade => Raylib.IsKeyPressed(KeyboardKey.One),
+            GameAction.BuyDamageUpgrade => Raylib.IsKeyPressed(KeyboardKey.Two),
+            GameAction.BuySkinUpgrade => Raylib.IsKeyPressed(KeyboardKey.Three),
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
         };
     }

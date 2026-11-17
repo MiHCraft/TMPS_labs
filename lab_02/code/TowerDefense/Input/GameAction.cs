@@ -6,4 +6,7 @@ public enum GameAction
     TogglePause,
     StartWave,
     BuildTower,
+    BuyRangeUpgrade,
+    BuyDamageUpgrade,
+    BuySkinUpgrade,
 }
