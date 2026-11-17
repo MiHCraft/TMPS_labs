@@ -1,0 +1,273 @@
+using System.Numerics;
+using Raylib_cs;
+using TowerDefense.Enemies;
+using TowerDefense.Input;
+using TowerDefense.Map;
+using TowerDefense.Towers;
+
+namespace TowerDefense;
+
+internal static class Game
+{
+    public static void Run(IGameInput input)
+    {
+        const int screenWidth = 1000;
+        const int screenHeight = 700;
+        const int cellSize = 60;
+        const int gridX = 140;
+        const int gridY = 100;
+
+        // Builder: define the size and road step by step, then build the map.
+        GameMap map = new MapBuilder()
+            .SetSize(8, 12)
+            .AddHorizontalRoad(2, 0, 4)
+            .AddVerticalRoad(4, 2, 5)
+            .AddHorizontalRoad(5, 4, 11)
+            .Build();
+
+        var waypoints = new List<Vector2>();
+        foreach (var (row, col) in map.Path)
+            waypoints.Add(CellCenter(row, col));
+
+        GameSession session = GameSession.Instance;
+        session.Reset();
+        var enemies = new List<IEnemy>();
+        var towers = new List<ITower>();
+        EnemyWave? wave = null;
+        bool paused = false;
+
+        Raylib.InitWindow(screenWidth, screenHeight, "Tower Defense - Lab 2");
+        Raylib.SetTargetFPS(60);
+
+        while (!input.ShouldQuit())
+        {
+            // 1. Input: restart, pause, start a wave, and build or upgrade towers.
+            if (input.IsPressed(GameAction.Restart))
+            {
+                session.Reset();
+                Array.Clear(map.Occupied);
+                enemies.Clear();
+                towers.Clear();
+                wave = null;
+                paused = false;
+            }
+
+            if (input.IsPressed(GameAction.TogglePause) && !session.IsFinished)
+                paused = !paused;
+
+            if (input.IsPressed(GameAction.StartWave) && !paused && session.BeginWave())
+                wave = new EnemyWave(session.WaveNumber, waypoints);
+
+            Vector2 mouse = input.PointerPosition;
+            int col = (int)MathF.Floor((mouse.X - gridX) / cellSize);
+            int row = (int)MathF.Floor((mouse.Y - gridY) / cellSize);
+            bool insideGrid = row >= 0 && row < map.Rows && col >= 0 && col < map.Columns;
+
+            if (
+                !paused
+                && !session.IsFinished
+                && insideGrid
+                && input.IsPressed(GameAction.BuildTower)
+                && map.CanBuild(row, col)
+                && session.TrySpendGold(TowerShop.BuildCost)
+            )
+            {
+                map.BuildTower(row, col);
+                towers.Add(TowerShop.Build(CellCenter(row, col)));
+            }
+
+            int hoveredTowerIndex = -1;
+            if (insideGrid && map.Occupied[row, col])
+            {
+                Vector2 hoveredCell = CellCenter(row, col);
+                hoveredTowerIndex = towers.FindIndex(tower => tower.Position == hoveredCell);
+            }
+
+            ITower? hoveredTower = hoveredTowerIndex >= 0 ? towers[hoveredTowerIndex] : null;
+            if (hoveredTower != null && !paused && !session.IsFinished)
+            {
+                foreach (TowerUpgradeOffer offer in TowerShop.UpgradeOffers)
+                {
+                    if (input.IsPressed(offer.Action))
+                        hoveredTower = offer.Buy(hoveredTower, session);
+                }
+
+                towers[hoveredTowerIndex] = hoveredTower;
+            }
+
+            // 2. Update: move enemies, fire towers, and process the results.
+            if (!paused && !session.IsFinished)
+            {
+                // Limit the frame time to prevent a large jump after moving the window.
+                float deltaTime = MathF.Min(Raylib.GetFrameTime(), 0.1f);
+                if (wave != null)
+                    wave.Update(deltaTime, enemies);
+
+                foreach (IEnemy enemy in enemies)
+                    enemy.Update(deltaTime);
+
+                foreach (ITower tower in towers)
+                    tower.Update(deltaTime, enemies);
+
+                // Iterate backwards so removal does not shift elements we have yet to check.
+                for (int i = enemies.Count - 1; i >= 0; i--)
+                {
+                    IEnemy enemy = enemies[i];
+                    if (enemy.IsDead)
+                    {
+                        session.RewardEnemy(enemy.Reward);
+                        enemies.RemoveAt(i);
+                    }
+                    else if (enemy.HasReachedEnd)
+                    {
+                        session.LoseLife();
+                        enemies.RemoveAt(i);
+                    }
+                }
+
+                if (wave != null && wave.AllEnemiesSpawned && enemies.Count == 0)
+                {
+                    session.CompleteWave();
+                    wave = null;
+                }
+            }
+
+            // 3. Drawing: display the current data without changing the game logic.
+            Raylib.BeginDrawing();
+            Raylib.ClearBackground(Color.DarkGray);
+            Raylib.DrawText("TOWER DEFENSE", gridX, 20, 28, Color.White);
+            Raylib.DrawText(
+                $"Gold: {session.Gold}    Lives: {session.Lives}    "
+                    + $"Wave: {session.WaveNumber}/{GameSession.TotalWaves}    Kills: {session.DefeatedEnemies}",
+                gridX,
+                62,
+                20,
+                Color.White
+            );
+
+            for (int y = 0; y < map.Rows; y++)
+            {
+                for (int x = 0; x < map.Columns; x++)
+                {
+                    int px = gridX + x * cellSize;
+                    int py = gridY + y * cellSize;
+                    Color color = Color.DarkGreen;
+
+                    if (map.Road[y, x])
+                        color = Color.Brown;
+                    if (map.Occupied[y, x])
+                        color = Color.Blue;
+
+                    if (insideGrid && x == col && y == row && !map.Occupied[y, x] && !paused && !session.IsFinished)
+                    {
+                        bool canBuild = map.CanBuild(y, x) && session.Gold >= TowerShop.BuildCost;
+                        color = canBuild ? Color.LightGray : Color.Red;
+                    }
+
+                    Raylib.DrawRectangle(px + 1, py + 1, cellSize - 2, cellSize - 2, color);
+                }
+            }
+
+            foreach (ITower tower in towers)
+            {
+                Raylib.DrawCircleV(tower.Position, 19, tower.BodyColor);
+                Raylib.DrawCircleV(tower.Position, 11, tower.CoreColor);
+                if (tower.IsShooting)
+                    Raylib.DrawLineEx(tower.Position, tower.LastTargetPosition, 3, Color.SkyBlue);
+
+                if (tower == hoveredTower)
+                    Raylib.DrawCircleLines(
+                        (int)tower.Position.X,
+                        (int)tower.Position.Y,
+                        tower.Range,
+                        Color.SkyBlue
+                    );
+            }
+
+            foreach (IEnemy enemy in enemies)
+            {
+                Raylib.DrawCircleV(enemy.Position, enemy.Radius, enemy.Color);
+                if (enemy.HasActiveShield)
+                {
+                    Raylib.DrawCircleLines(
+                        (int)enemy.Position.X,
+                        (int)enemy.Position.Y,
+                        enemy.Radius + 4,
+                        Color.SkyBlue
+                    );
+                }
+
+                int barX = (int)enemy.Position.X - 20;
+                int barY = (int)(enemy.Position.Y - enemy.Radius) - 9;
+                Raylib.DrawRectangle(barX, barY, 40, 5, Color.Black);
+                Raylib.DrawRectangle(
+                    barX,
+                    barY,
+                    40 * enemy.Health / enemy.MaxHealth,
+                    5,
+                    Color.Lime
+                );
+            }
+
+            Raylib.DrawText("START", gridX - 65, gridY + 2 * cellSize + 22, 16, Color.White);
+            Raylib.DrawText(
+                "BASE",
+                gridX + map.Columns * cellSize + 10,
+                gridY + 5 * cellSize + 22,
+                16,
+                Color.White
+            );
+            Raylib.DrawText(
+                $"Click: build ({TowerShop.BuildCost})  |  SPACE: next wave  |  P: pause  |  R: restart",
+                gridX,
+                610,
+                17,
+                Color.White
+            );
+
+            string hint = "Defend the base! Hover over a tower to buy upgrades.";
+            if (!session.WaveInProgress && !session.IsFinished)
+                hint = "Build towers near the road. Hover to upgrade them.";
+            if (insideGrid && !paused && !session.IsFinished)
+            {
+                if (hoveredTower != null)
+                {
+                    hint = string.Join(
+                        "  |  ",
+                        TowerShop.UpgradeOffers.Select(offer => offer.GetHint(hoveredTower))
+                    );
+                }
+                else if (map.Road[row, col])
+                    hint = "You cannot build on the road.";
+                else if (session.Gold < TowerShop.BuildCost)
+                    hint = "Not enough gold. Defeat enemies to earn more.";
+            }
+            Raylib.DrawText(hint, gridX, 645, 18, Color.White);
+
+            if (paused || session.IsFinished)
+            {
+                Raylib.DrawRectangle(240, 240, 520, 190, new Color(20, 25, 35, 245));
+                string title = paused ? "PAUSED" : "GAME OVER";
+                if (session.HasWon)
+                    title = "VICTORY!";
+                int textWidth = Raylib.MeasureText(title, 40);
+                Raylib.DrawText(title, (screenWidth - textWidth) / 2, 275, 40, Color.White);
+                string action = paused ? "Press P to continue" : "Press R to play again";
+                textWidth = Raylib.MeasureText(action, 22);
+                Raylib.DrawText(action, (screenWidth - textWidth) / 2, 350, 22, Color.White);
+            }
+
+            Raylib.EndDrawing();
+        }
+
+        Raylib.CloseWindow();
+
+        Vector2 CellCenter(int row, int col)
+        {
+            return new Vector2(
+                gridX + col * cellSize + cellSize / 2,
+                gridY + row * cellSize + cellSize / 2
+            );
+        }
+    }
+}
