@@ -4,6 +4,8 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TowerDefense", "TowerDefense\TowerDefense.csproj", "{6802EBC7-2DD6-4600-A49E-49ED79766949}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TowerDefense.Checks", "TowerDefense.Checks\TowerDefense.Checks.csproj", "{075D8121-C77C-41B0-9ADF-C4A22737593B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{6802EBC7-2DD6-4600-A49E-49ED79766949}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6802EBC7-2DD6-4600-A49E-49ED79766949}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6802EBC7-2DD6-4600-A49E-49ED79766949}.Release|Any CPU.Build.0 = Release|Any CPU
+		{075D8121-C77C-41B0-9ADF-C4A22737593B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{075D8121-C77C-41B0-9ADF-C4A22737593B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{075D8121-C77C-41B0-9ADF-C4A22737593B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{075D8121-C77C-41B0-9ADF-C4A22737593B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

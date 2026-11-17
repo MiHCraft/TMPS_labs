@@ -5,22 +5,50 @@ namespace TowerDefense.Input;
 
 public sealed class RaylibInputAdapter : IGameInput
 {
-    public Vector2 PointerPosition => Raylib.GetMousePosition();
+    private readonly Func<KeyboardKey, bool> isKeyPressed;
+    private readonly Func<MouseButton, bool> isMouseButtonPressed;
+    private readonly Func<Vector2> getMousePosition;
+    private readonly Func<bool> windowShouldClose;
+
+    public RaylibInputAdapter()
+        : this(
+            static key => Raylib.IsKeyPressed(key),
+            static button => Raylib.IsMouseButtonPressed(button),
+            Raylib.GetMousePosition,
+            static () => Raylib.WindowShouldClose()
+        )
+    {
+    }
+
+    internal RaylibInputAdapter(
+        Func<KeyboardKey, bool> isKeyPressed,
+        Func<MouseButton, bool> isMouseButtonPressed,
+        Func<Vector2> getMousePosition,
+        Func<bool> windowShouldClose
+    )
+    {
+        this.isKeyPressed = isKeyPressed;
+        this.isMouseButtonPressed = isMouseButtonPressed;
+        this.getMousePosition = getMousePosition;
+        this.windowShouldClose = windowShouldClose;
+    }
+
+    public Vector2 PointerPosition => getMousePosition();
 
     public bool IsPressed(GameAction action)
     {
         return action switch
         {
-            GameAction.Restart => Raylib.IsKeyPressed(KeyboardKey.R),
-            GameAction.TogglePause => Raylib.IsKeyPressed(KeyboardKey.P),
-            GameAction.StartWave => Raylib.IsKeyPressed(KeyboardKey.Space),
-            GameAction.BuildTower => Raylib.IsMouseButtonPressed(MouseButton.Left),
-            GameAction.BuyRangeUpgrade => Raylib.IsKeyPressed(KeyboardKey.One),
-            GameAction.BuyDamageUpgrade => Raylib.IsKeyPressed(KeyboardKey.Two),
-            GameAction.BuySkinUpgrade => Raylib.IsKeyPressed(KeyboardKey.Three),
+            GameAction.Restart => isKeyPressed(KeyboardKey.R),
+            GameAction.TogglePause => isKeyPressed(KeyboardKey.P),
+            GameAction.StartWave => isKeyPressed(KeyboardKey.Space),
+            GameAction.BuildTower => isMouseButtonPressed(MouseButton.Left),
+            GameAction.BuyRangeUpgrade => isKeyPressed(KeyboardKey.One),
+            GameAction.BuyDamageUpgrade => isKeyPressed(KeyboardKey.Two),
+            GameAction.BuySkinUpgrade => isKeyPressed(KeyboardKey.Three),
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
         };
     }
 
-    public bool ShouldQuit() => Raylib.WindowShouldClose();
+    public bool ShouldQuit() => windowShouldClose();
 }

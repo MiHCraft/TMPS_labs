@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="8.1.0" />
+    <InternalsVisibleTo Include="TowerDefense.Checks" />
   </ItemGroup>
 
 </Project>
